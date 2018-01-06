@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>qingtu anime</title>
+<style type="text/css">
+body, html{
+	margin: 0;
+}
+canvas{
+	display: block;
+}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script type="text/javascript">
+(function(id){
+	var canvas = document.getElementById(id);
+	if(canvas==null){
+		console.log('页面没有<canvas id='+ id +'>元素，无法创建canvas环境');
+		return;
+	}else if(!canvas.getContext){
+		console.log('您的浏览器暂不支持<canvas>元素，请升级至最新版本！');
+		return;
+	}
+	canvas.width = window.innerWidth;
+	canvas.height = window.innerHeight;
+	Object.defineProperty(window, 'resolution', {
+		get: function(){
+			var x = canvas.width<=canvas.height ? 1.0 : canvas.height/canvas.width;
+			var y = canvas.width<=canvas.height ? canvas.width/canvas.height : 1.0;
+			return {x:x, y:y};
+		}
+	})
+	gl = canvas.getContext('experimental-webgl');// global
+
+	var VSHADER_SOURCE = 'attribute vec4 a_position;'+
+		'void main(){'+
+		'gl_Position= a_position;gl_PointSize=1.;'+
+		'}';
+	var vshader = gl.createShader(gl.VERTEX_SHADER);
+	gl.shaderSource(vshader, VSHADER_SOURCE);
+	gl.compileShader(vshader);
+
+	var FSHADER_SOURCE = 'void main(){'+
+		'gl_FragColor = vec4(0.502, 0.773, 0.933, 1.);'+
+		'}';
+	var fshader = gl.createShader(gl.FRAGMENT_SHADER);
+	gl.shaderSource(fshader, FSHADER_SOURCE);
+	gl.compileShader(fshader);
+
+	var program = gl.createProgram();
+	gl.attachShader(program, vshader);
+	gl.attachShader(program, fshader);
+	gl.linkProgram(program);
+	gl.useProgram(program);
+
+	function Rect(_cx, _cy, _r, _option){
+		this.cx = _cx;
+		this.cy = _cy;
+		this.r = _r;
+		this.v = {x: 0.001+(Math.random()*2-1)*0.003, y: 0.001+(Math.random()*2-1)*0.003};
+		_option = _option || {};
+		this.roundStartDeg = _option.roundStartDeg===undefined ? 40 : _option.roundStartDeg;
+		this.roundPointCount = _option.roundPointCount || 11;
+		this.angRad = _option.angDeg*Math.PI/180 || (Math.random()*2-1)*Math.PI;
+		this.angV = Math.sqrt(this.v.x*this.v.x, this.v.y*this.v.y) * 13;
+
+		this.count = this.roundPointCount*4;
+
+		this.originVertexPositions = new Float32Array(roundRect(this.r, this.roundStartDeg, this.roundPointCount));
+		this.screenVertices = new Float32Array(this.count*2);
+	}
+	Rect.prototype.getVertices = function(){
+		var r, alpha;
+		for(var i=0; i<this.count; i++){
+			r = this.originVertexPositions[i*2+0];
+			alpha = this.originVertexPositions[i*2+1] + this.angRad;
+			this.screenVertices[i*2+0] = (r*Math.cos(alpha)+this.cx)*resolution.x;
+			this.screenVertices[i*2+1] = (r*Math.sin(alpha)+this.cy)*resolution.y;
+		}
+		return this.screenVertices;
+	}
+	Rect.prototype.collide = function(){
+		if(this.cx < (-1/resolution.x+this.r)){
+			this.v.x *= -1;
+			this.cx = -1/resolution.x + this.r;
+		}else if(this.cx > (1/resolution.x-this.r)){
+			this.v.x *= -1;
+			this.cx = 1/resolution.x - this.r;
+		}
+
+		if(this.cy < (-1/resolution.y+this.r)){
+			this.v.y *= -1;
+			this.cy = -1/resolution.y + this.r;
+		}else if(this.cy > (1/resolution.y-this.r)){
+			this.v.y *= -1;
+			this.cy = 1/resolution.y - this.r;
+		}
+	}
+	Rect.prototype.draw = function(){
+		gl.bufferData(gl.ARRAY_BUFFER, this.getVertices(), gl.STREAM_DRAW);
+		gl.drawArrays(gl.LINE_LOOP, 0, this.count);
+
+		this.update();
+	}
+	Rect.prototype.update = function(){
+		this.angRad += this.angV;
+		this.cx += this.v.x;
+		this.cy += this.v.y;
+		this.collide();
+	}
+
+	function roundRect(_r, _roundStartDeg, _roundPointCount){
+		var roundStartRad = _roundStartDeg * Math.PI/180;
+		var roundStartRate = Math.tan(roundStartRad);
+		var roundRectInfo = {
+			x: _r * roundStartRate,
+			y: _r * roundStartRate,
+			r: _r * (1-roundStartRate)
+		}
+		var points=[], _v=[];
+
+		for(var j=0,px,py; j<_roundPointCount; j++){
+			var rate = j / (_roundPointCount-1);
+			px = (roundRectInfo.x+roundRectInfo.r*Math.cos(rate*Math.PI/2));
+			py = (roundRectInfo.y+roundRectInfo.r*Math.sin(rate*Math.PI/2));
+			points.push(Math.sqrt(px*px + py*py), Math.atan2(py, px));
+		}
+
+		var l = points.length;
+		for(var i=1; i<4; i++){
+			for(var j=0; j<l; j+=2){
+				points.push(points[j+0], points[j+1]+i*Math.PI/2);
+			}
+		}
+
+		return points;
+	}
+
+	program.vbo = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, program.vbo, gl.STREAM_DRAW);
+
+	program.a_position = gl.getAttribLocation(program, 'a_position');
+	gl.vertexAttribPointer(program.a_position, 2, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(program.a_position);
+
+	gl.clearColor(0, 0, 0, 1);
+	gl.viewport(0, 0, canvas.width, canvas.height);
+
+	rects = []; // global
+	// rects.push(new Rect((Math.random()*1.8-0.9)/resolution.x, (Math.random()*1.8-0.9)/resolution.y, 0.4+Math.random()*0.1, {'roundStartDeg':0}));
+	// rects.push(new Rect(Math.random()*1.8-0.9, Math.random()*1.8-0.9, 0.25+Math.random()*0.15, {'roundStartDeg':0}));
+	// rects.push(new Rect(Math.random()*1.8-0.9, Math.random()*1.8-0.9, 0.36+Math.random()*0.15, {'roundStartDeg':30}));
+	// rects.push(new Rect(Math.random()*1.8-0.9, Math.random()*1.8-0.9, 0.25+(Math.random()*2-1)*0.1, {'roundStartDeg':35}));
+	// rects.push(new Rect(Math.random()*1.8-0.9, Math.random()*1.8-0.9, 0.2+Math.random()*0.1, {'roundStartDeg':35}));
+	for(var i=0; i<500; i++){
+		rects.push(new Rect(Math.random()*2-1, Math.random()*2-1, Math.random()*0.6, {'roundStartDeg':35}));
+	}
+
+	var n = 0;
+	console.time('a');
+	requestAnimationFrame(function loop(){
+		gl.clear(gl.COLOR_BUFFER_BIT);
+		rects.forEach(function(v, i, a){
+			v.draw();
+		});
+		n++;
+
+		requestAnimationFrame(loop);
+	});
+	setTimeout(function(){
+		console.timeEnd('a');
+		window.name = n/10;
+	}, 10000);
+
+	window.addEventListener('resize', function(e){
+		canvas.width = window.innerWidth;
+		canvas.height = window.innerHeight;
+
+		gl.viewport(0, 0, canvas.width, canvas.height);
+	})
+})('canvas');
+</script>
+</body>
+</html>

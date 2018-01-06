@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>1 - use GLSL</title>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script type="text/javascript">
+window.onload = function(){
+	var VSHADER_SOURCE = `
+		void main(){
+			gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+			gl_PointSize = 10.0;
+		}`;
+	var FSHADER_SOURCE = `
+		void main(){
+			// 设置颜色
+			gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+		}`;
+	var canvas = document.getElementById('canvas');
+	var gl = canvas.getContext('webgl');
+	if(!gl){
+		console.log('browser not support WebGL');
+		return;
+	}
+	console.log(gl);
+	var vertShader = gl.createShader(gl.VERTEX_SHADER);
+	gl.shaderSource(vertShader, VSHADER_SOURCE);
+	gl.compileShader(vertShader);
+
+    var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragShader, FSHADER_SOURCE);
+    gl.compileShader(fragShader);
+
+	var shaderProgram = gl.createProgram();
+	gl.attachShader(shaderProgram, vertShader);
+	gl.attachShader(shaderProgram, fragShader);
+	gl.linkProgram(shaderProgram);
+	gl.useProgram(shaderProgram);
+
+	gl.drawArrays(gl.POINTS, 0, 1);
+}
+</script>
+</body>
+</html>

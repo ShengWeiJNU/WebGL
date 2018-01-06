@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>0102</title>
+<style>
+body, html{
+	margin: 0;
+}
+canvas{
+	display: block;
+}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script type="text/javascript">
+var {abs, sin, cos, PI, TAU=PI*2, sqrt, pow} = Math;
+var pow2 = function(x){
+	return pow(x, 2);
+}
+var canvas = document.getElementById('canvas');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+var gl = canvas.getContext('webgl');
+
+var VSHADER_SOURCE = `
+	attribute vec4 a_position;
+	varying vec4 v_color;
+	uniform float a_pointSize;
+	void main(){
+		gl_Position = a_position;
+		gl_PointSize = a_pointSize;
+		v_color = a_position/2. + vec4(0.5, 0.5, 0.5, 1.);
+	}`;
+var vshader = gl.createShader(gl.VERTEX_SHADER);
+gl.shaderSource(vshader, VSHADER_SOURCE);
+gl.compileShader(vshader);
+
+var FSHADER_SOURCE =  `
+	#ifdef GL_ES
+	precision highp float;
+	#endif
+	varying vec4 v_color;
+	void main(){
+		gl_FragColor = v_color;
+	}`;
+var fshader = gl.createShader(gl.FRAGMENT_SHADER);
+gl.shaderSource(fshader, FSHADER_SOURCE);
+gl.compileShader(fshader);
+
+var program = gl.createProgram();
+gl.attachShader(program, vshader);
+gl.attachShader(program, fshader);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+var vertices = new Float32Array([
+	-0.5,  0.5,
+	 0.5,  0.5,
+	 0.5, -0.5,
+	-0.5, -0.5]);
+var vbo = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+var a_position = gl.getAttribLocation(program, 'a_position');
+gl.vertexAttribPointer(a_position, 2, gl.FLOAT, false, 0, 0);
+gl.enableVertexAttribArray(a_position);
+
+var u_pointSize = gl.getUniformLocation(program, 'a_pointSize');
+gl.uniform1f(u_pointSize, 30);
+
+gl.clearColor(0, 0, 0, 1);
+
+canvas.onmousemove = function(e){
+	var diffX = abs(e.pageX-window.innerWidth/2)/(window.innerWidth/2);
+	var diffY = abs(e.pageY-window.innerHeight/2)/(window.innerHeight/2);
+	var unDiffX = 1 - diffX;
+	var unDiffY = 1 - diffY;
+	// var rate = sqrt(pow2(diffX) + pow2(diffY));
+	// var unrate = sqrt(pow2(unDiffX) + pow2(unDiffY));
+	var rate = diffX * diffY;
+	var unrate = unDiffX * unDiffY;
+	gl.uniform1f(u_pointSize, unrate*30);
+	r = 0.35 + unrate*0.4;
+	v = 0.005 + rate*0.1;
+}
+window.onresize = function(e){
+	canvas.width = window.innerWidth;
+	canvas.height = window.innerHeight;
+
+	gl.viewport(0, 0, canvas.width, canvas.height);
+}
+
+var r = 0.35;
+var l = 50;
+var rad = 0;
+var v = 0.005;
+Object.defineProperty(window, 'resolution', {
+	get: function(){
+		var x = canvas.width>=canvas.height ? 1.0 : canvas.height/canvas.width;
+		var y = canvas.width>=canvas.height ? canvas.width/canvas.height : 1.0;
+		return {x, y};
+	}
+})
+
+requestAnimationFrame(function loop(){
+	vertices = [];
+	for(let i=0; i<l; i++){
+		let rate = i / (l-1);
+		vertices[i*2+0] = r * cos(rad+rate*TAU) * resolution.x;
+		vertices[i*2+1] = r * sin(rad+rate*TAU) * resolution.y;
+	}
+	vertices = new Float32Array(vertices);
+	gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STREAM_DRAW);
+
+	gl.clear(gl.COLOR_BUFFER_BIT);
+	gl.drawArrays(gl.POINTS, 0, l);
+
+	rad += v;
+
+	requestAnimationFrame(loop);
+})
+</script>
+</body>
+</html>
