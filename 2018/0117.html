@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title></title>
+</head>
+<body>
+<div id="sw">ddafadfasdfadsf</div>
+<script type="text/javascript">
+var customEvent = document.createEvent('Event');
+customEvent.initEvent('numberChange', true, false);
+window.addEventListener('numberChange', function(e){
+	console.log('dispatch numberChange event.');
+	if(e.val === null){
+		console.error('illegal value');
+		customEvent.val = 0;
+	}
+	document.getElementById('sw').innerHTML = customEvent.val;
+});
+
+Object.defineProperty(window, 'n', {
+	get: ()=>customEvent.val,
+	set: (v)=>{
+		customEvent.val = v;
+		window.dispatchEvent(customEvent);
+	}
+})
+</script>
+</body>
+</html>
